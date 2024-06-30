@@ -317,6 +317,7 @@ outer:
 			continue
 		}
 
+		// ??? if we're inside a top level "<" and we've reached a comma?
 		if pairs['{'] == 0 && pairs['('] == 0 && pairs['['] == 0 && pairs['<'] == 1 && token == js.CommaToken {
 			idents = make([]string, 0)
 			i += len(value)
@@ -383,6 +384,7 @@ outer:
 			}
 		}
 
+		// second part ok, but it's an extends if there is a question mark?
 		if token == js.QuestionToken || (pairs['{'] == 0 && token == js.ColonToken) {
 			idents = make([]string, 0)
 			idents = append(idents, "extends")
@@ -733,4 +735,123 @@ func ExtractComponentExportName(data string, imported Import) (string, bool) {
 		return exportName, true
 	}
 	return "", false
+}
+
+type Component struct {
+	Doc      string
+	Ident    string
+	Generics string
+}
+
+func GetComponentType(source []byte) Component {
+	defaultDoc := "// some default documentation" // TODO: add default docs
+	defaultComponentType := "{ props: Record<string, any> }"
+	ident := defaultComponentType
+	generics := ""
+
+	if !bytes.Contains(source, []byte("Component")) {
+		return Component{
+			Doc:      defaultDoc,
+			Ident:    ident,
+			Generics: generics,
+		}
+	}
+
+	doc := ""
+	docFound := false
+	// idents := make([]string, 0)
+
+	i := 0
+	docStart := 0
+	docEnd := 0
+
+	l := js.NewLexer(parse.NewInputBytes(source))
+
+	for {
+		token, value := l.Next()
+
+		fmt.Println(token, string(value))
+
+		if token == js.DivToken || token == js.DivEqToken {
+			if len(source) > i {
+				lns := bytes.Split(source[i+1:], []byte{'\n'})
+				if bytes.Contains(lns[0], []byte{'/'}) {
+					token, value = l.RegExp()
+				}
+			}
+		}
+
+		if token == js.ErrorToken {
+			if l.Err() != io.EOF {
+				if !docFound {
+					doc = ""
+				}
+				break
+			}
+			break
+		}
+
+		if token == js.SemicolonToken {
+			if !docFound {
+				doc = ""
+			}
+			i += len(value)
+			continue
+		}
+
+		if token == js.InterfaceToken || token == js.WhitespaceToken || token == js.LineTerminatorToken {
+			i += len(value)
+			continue
+		}
+
+		if js.IsReservedWord(token) {
+			i += len(value)
+			if bytes.Equal(value, []byte("export")) {
+				continue
+			} else {
+				if doc != "" && !docFound {
+					doc = ""
+					continue
+				}
+			}
+		}
+
+		if js.IsIdentifier(token) {
+			i += len(value)
+			if bytes.Equal(value, []byte("Component")) {
+				if doc != "" && !docFound {
+					docFound = true
+				}
+				break
+			} else {
+				continue
+			}
+		}
+
+		if token == js.CommentToken || token == js.CommentLineTerminatorToken {
+			doc = string(value)
+			docStart = i
+			i += len(value)
+			docEnd = i
+
+			continue
+		}
+
+		i += len(value)
+		if !docFound {
+			doc = ""
+		}
+	}
+
+	if !docFound {
+		doc = defaultDoc
+	}
+
+	fmt.Println(docStart, docEnd)
+
+	return Component{
+		Doc:      doc,
+		Ident:    ident,
+		Generics: generics,
+	}
 }

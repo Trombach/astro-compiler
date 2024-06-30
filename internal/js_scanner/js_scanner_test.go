@@ -206,6 +206,110 @@ import { c } from "c";
 	}
 }
 
+func fixturesComponentDoc() []testcase {
+	return []testcase{
+		{
+			name: "comment",
+			source: `/**
+ * @name Component
+ */
+type Component = {};
+`,
+			want: `/**
+ * @name Component
+ */
+`,
+		},
+		{
+			name: "comment over incorrect identifier",
+			source: `/**
+ * @name Component
+ */
+type MyType = {};
+`,
+			want: "// some default documentation",
+		},
+		{
+			name: "correct and incorrect identifier",
+			source: `/**
+ * @name MyType
+ */
+type MyType = {};
+
+/**
+ * @name Component
+ */
+type Component = {};
+`,
+			want: `/**
+ * @name Component
+ */`,
+		},
+		{
+			name: "inline comment",
+			source: `// some docs
+type Component = {};
+`,
+			want: "// some docs",
+		},
+		{
+			name: "comment over interface",
+			source: `/**
+ * @name Component
+ */
+interface Component = {};
+`,
+			want: `/**
+ * @name Component
+ */`,
+		},
+		{
+			name: "comment over exported interface",
+			source: `/**
+ * @name Component
+ */
+export interface Component = {};
+`,
+			want: `/**
+ * @name Component
+ */`,
+		},
+		{
+			name: "I guess this also works",
+			source: `/**
+ * @name MyProp
+ */
+MyProp
+
+/**
+ * @name AnotherOne
+ */
+"Component"
+
+/**
+ * @name Component
+ */
+Component
+`,
+			want: `// some default documentation`,
+		},
+	}
+}
+
+func TestGetComponentDoc(t *testing.T) {
+	tests := fixturesComponentDoc()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetComponentType([]byte(tt.source))
+
+			if diff := test_utils.ANSIDiff(strings.TrimSpace(tt.want), strings.TrimSpace(result.Doc)); diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestHoistImport(t *testing.T) {
 	tests := fixturesHoistImport()
 	for _, tt := range tests {
