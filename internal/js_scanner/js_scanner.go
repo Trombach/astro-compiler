@@ -384,10 +384,9 @@ outer:
 			}
 		}
 
-		// second part ok, but it's an extends if there is a question mark?
 		if token == js.QuestionToken || (pairs['{'] == 0 && token == js.ColonToken) {
 			idents = make([]string, 0)
-			idents = append(idents, "extends")
+			idents = append(idents, "extends") // I don't understand this one
 		}
 
 		// Track opening and closing braces
@@ -821,6 +820,7 @@ func GetComponentType(source []byte) Component {
 			if bytes.Equal(value, []byte("Component")) {
 				if doc != "" && !docFound {
 					docFound = true
+					ident = "Component"
 				}
 				break
 			} else {
